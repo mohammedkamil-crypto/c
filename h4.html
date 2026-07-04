@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generalized α-Fold Engine - Algorithm C</title>
+    <style>
+        :root {
+            --bg-deep: #0f172a;
+            --bg-panel: #1e293b;
+            --border-glow: #334155;
+            --radar-grid: #1e293b;
+            
+            --color-input: #f43f5e;     
+            --color-bounce: #0ea5e9;     
+            --color-converged: #10b981;  
+            --color-warning: #f59e0b;    
+            --color-opt: #06b6d4;
+            
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --font-engine: 'Fira Code', 'Courier New', Courier, monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: var(--font-engine); }
+        body { background-color: var(--bg-deep); color: var(--text-primary); padding: 1.5rem; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+        
+        .showcase-wrapper { width: 100%; max-width: 1440px; display: flex; flex-direction: column; gap: 1.25rem; }
+        
+        header { border-left: 5px solid var(--color-opt); padding-left: 1.5rem; margin-bottom: 0.25rem; }
+        header h1 { font-size: 2rem; font-weight: 900; letter-spacing: -0.03em; color: #fff; text-shadow: 0 0 20px rgba(6, 182, 212, 0.3); }
+        header p { color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.2rem; }
+
+        .hardware-config-grid { 
+            display: grid; 
+            grid-template-columns: 1fr; 
+            gap: 1.25rem; 
+            background: linear-gradient(180deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
+            padding: 1.25rem; 
+            border-radius: 12px; 
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+        }
+        @media (min-width: 950px) {
+            .hardware-config-grid { grid-template-columns: 1.2fr 1.8fr 1fr; }
+        }
+
+        .config-block {
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+            background: rgba(2, 6, 23, 0.6);
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--radar-grid);
+        }
+
+        .config-block h3 {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--color-opt);
+            letter-spacing: 0.08em;
+            border-bottom: 1px solid var(--radar-grid);
+            padding-bottom: 0.4rem;
+        }
+
+        .console-field { display: flex; flex-direction: column; gap: 0.3rem; }
+        .console-field label { font-size: 0.6rem; text-transform: uppercase; color: var(--text-secondary); font-weight: 700; letter-spacing: 0.08em; }
+        
+        .input-row { display: flex; gap: 0.5rem; align-items: center; }
+        input[type="number"] { width: 100%; background: #020617; border: 1px solid var(--border-glow); color: #fff; padding: 0.5rem; border-radius: 6px; font-weight: bold; font-size: 0.95rem; outline: none; }
+        input[type="number"]:focus { border-color: var(--color-opt); }
+
+        /* Custom Styling for the range slider */
+        .slider-container { display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.25rem; }
+        input[type="range"] { -webkit-appearance: none; width: 100%; background: #020617; height: 6px; border-radius: 3px; outline: none; border: 1px solid var(--border-glow); }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--color-opt); cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 8px rgba(6, 182, 212, 0.5); }
+        input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--color-opt); cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 8px rgba(6, 182, 212, 0.5); }
+
+        .preset-buttons-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem; }
+        
+        .preset-btn {
+            background: #0f172a;
+            border: 1px solid var(--border-glow);
+            color: var(--text-primary);
+            padding: 0.55rem 0.4rem;
+            border-radius: 6px;
+            font-size: 0.72rem;
+            cursor: pointer;
+            text-align: center;
+            font-weight: bold;
+            transition: all 0.15s ease;
+        }
+        .preset-btn:hover { border-color: var(--text-secondary); background: rgba(255,255,255,0.02); }
+        .preset-btn.active { border-color: #0ea5e9 !important; box-shadow: 0 0 8px rgba(14, 165, 233, 0.3); background: #1e293b; }
+        .preset-btn span { color: #0ea5e9; }
+
+        .focus-selector-group { display: flex; gap: 0.5rem; background: #020617; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-glow); }
+        .focus-label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.68rem; cursor: pointer; color: var(--text-secondary); flex: 1; }
+        .focus-label input { accent-color: var(--color-opt); }
+        .focus-label:has(input:checked) { color: #fff; font-weight: bold; }
+
+        .btn-action-stack { display: flex; flex-direction: column; gap: 0.4rem; height: 100%; justify-content: center; }
+        .hardware-btn { background: var(--color-opt); color: #020617; border: none; padding: 0.65rem; font-weight: 900; border-radius: 6px; cursor: pointer; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; transition: all 0.2s; }
+        .hardware-btn:hover { background: #22d3ee; transform: translateY(-1px); }
+        .hardware-btn-sec { background: transparent; border: 1px solid var(--border-glow); color: var(--text-primary); }
+        .hardware-btn-sec:hover { background: rgba(255,255,255,0.05); border-color: var(--text-secondary); }
+
+        .layout-grid { display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
+        @media (min-width: 1100px) { .layout-grid { grid-template-columns: 520px 1fr; } }
+
+        .glass-panel { background: linear-gradient(135deg, var(--bg-panel) 0%, #0f172a 100%); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 1.25rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; }
+        
+        .radar-box { position: relative; width: 100%; aspect-ratio: 1; }
+        canvas { background: #020617; border: 1px solid var(--radar-grid); border-radius: 12px; width: 100%; height: 100%; display: block; }
+        
+        .system-banner { background: rgba(239, 68, 68, 0.15); border: 1px solid var(--color-input); color: #fca5a5; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.72rem; margin-bottom: 0.75rem; display: none; text-align: center; }
+
+        .telemetry-matrix { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
+        .telemetry-tile { background: rgba(2, 6, 23, 0.6); border: 1px solid rgba(255,255,255,0.02); border-radius: 8px; padding: 0.5rem; text-align: center; border-bottom: 2px solid var(--border-glow); }
+        .tel-label { font-size: 0.5rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; }
+        .tel-value { font-size: 0.95rem; font-weight: 800; margin-top: 0.25rem; }
+
+        .trace-container { flex: 1; overflow-y: auto; max-height: 155px; background: #020617; border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; padding: 0.4rem; }
+        .system-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; text-align: left; }
+        .system-table th { color: var(--text-secondary); font-size: 0.6rem; text-transform: uppercase; padding: 0.4rem; border-bottom: 2px solid var(--border-glow); }
+        .system-table td { padding: 0.4rem; border-bottom: 1px solid #0f172a; color: #e2e8f0; }
+        .row-executing { background: rgba(6, 182, 212, 0.15) !important; color: #cffafe !important; font-weight: bold; }
+
+        .badge-plunge { color: var(--color-warning); font-weight: bold; background: rgba(245, 158, 11, 0.1); padding: 0.1rem 0.3rem; border-radius: 4px; }
+        .badge-staircase { color: var(--color-bounce); font-weight: bold; background: rgba(14, 165, 233, 0.1); padding: 0.1rem 0.3rem; border-radius: 4px; }
+        .badge-converged { color: var(--color-converged); font-weight: bold; background: rgba(16, 185, 129, 0.1); padding: 0.1rem 0.3rem; border-radius: 4px; }
+
+        .oscilloscope-panel { margin-top: 1.25rem; background: #0f172a; border: 1px solid var(--radar-grid); border-radius: 12px; padding: 1rem; width: 100%; display: flex; flex-direction: column; gap: 0.5rem; }
+        .oscilloscope-header { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; color: var(--color-opt); letter-spacing: 0.08em; display: flex; justify-content: space-between; }
+        .wave-svg { width: 100%; height: 110px; background: #020617; border-radius: 6px; border: 1px solid rgba(255,255,255,0.02); }
+
+        .radar-legend { display: flex; justify-content: space-between; font-size: 0.65rem; margin-top: 0.75rem; background: rgba(2, 6, 23, 0.6); padding: 0.5rem 1rem; border-radius: 8px; }
+        .legend-node { display: flex; align-items: center; gap: 0.4rem; font-weight: bold; }
+        .badge-dot { width: 6px; height: 6px; border-radius: 50%; }
+    </style>
+</head>
+<body>
+
+<div class="showcase-wrapper">
+    <header>
+        <h1>Generalized α-Fold Space Engine (Algorithm C)</h1>
+        <p>Interactive Reflection Engine - Evaluating T_α(θ) = |θ| - α Iterations</p>
+    </header>
+
+    <div class="hardware-config-grid">
+        <div class="config-block">
+            <h3>Vector Ingestion Port</h3>
+            <div class="console-field">
+                <label>Arbitrary Input Angle (θ)</label>
+                <div class="input-row">
+                    <input type="number" id="boxAngle" value="1050" step="any">
+                    <span style="color: var(--text-secondary); font-weight: bold; font-size: 0.85rem;">°</span>
+                </div>
+                <div class="slider-container">
+                    <input type="range" id="sliderAngle" min="0" max="2000" value="1050" step="1">
+                </div>
+            </div>
+            <div class="console-field">
+                <label>Radar Focus Engine Scope</label>
+                <div class="focus-selector-group">
+                    <label class="focus-label"><input type="radio" name="radarFocus" value="A" checked> Half Bound (α/2)</label>
+                    <label class="focus-label"><input type="radio" name="radarFocus" value="B"> Full Bound (α)</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="config-block">
+            <h3>Symmetry Framework Preset Matrices</h3>
+            <div class="preset-buttons-grid">
+                <button class="preset-btn active" data-alpha="360" data-geom="Coterminal Angle Mode"><span>α</span>=360° (Rotational)</button>
+                <button class="preset-btn" data-alpha="180" data-geom="Opposite Angle Mode"><span>α</span>=180° (Horizontal)</button>
+                <button class="preset-btn" data-alpha="90" data-geom="Supplementary Angle Mode"><span>α</span>=90° (Quadrant)</button>
+                <button class="preset-btn" data-alpha="45" data-geom="Complementary Angle Mode"><span>α</span>=45° (Octagon)</button>
+            </div>
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.1rem;">
+                <div class="console-field" style="flex: 1;"><label>Custom Alpha (α)</label><input type="number" id="inAlpha" value="360" step="any"></div>
+            </div>
+            <div style="text-align: center; color: var(--color-warning); font-size: 0.6rem; font-weight: bold; text-transform: uppercase; margin-top: 0.2rem;" id="geomLabel">
+                Coterminal Angle Mode
+            </div>
+        </div>
+
+        <div class="config-block">
+            <h3>System Execution Controls</h3>
+            <div class="btn-action-stack">
+                <button class="hardware-btn" id="cmdCompute">Execute Modulo Sequence</button>
+                <button class="hardware-btn hardware-btn-sec" id="cmdStep">Step Shift Frame ❯</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="system-banner" id="warningBanner">
+        AXIS LOCKOUT TRIGGERED: Angle invalid for calculation constraints.
+    </div>
+
+    <div class="layout-grid">
+        <div class="glass-panel">
+            <div class="radar-box"><canvas id="radarPlane" width="600" height="600"></canvas></div>
+            <div class="radar-legend">
+                <div class="legend-node" style="color: var(--color-input);"><div class="badge-dot" style="background: var(--color-input);"></div><span>Intake θ₀</span></div>
+                <div class="legend-node" style="color: var(--color-bounce);"><div class="badge-dot" style="background: var(--color-bounce);"></div><span>Folds Trajectory</span></div>
+                <div class="legend-node" style="color: var(--color-converged);"><div class="badge-dot" style="background: var(--color-converged);"></div><span>Convergence Zone</span></div>
+            </div>
+        </div>
+
+        <div class="glass-panel">
+            <div class="telemetry-matrix">
+                <div class="telemetry-tile" style="border-bottom-color: var(--color-opt);">
+                    <div class="tel-label">Converged Ref Angle</div>
+                    <div class="tel-value" id="regRef" style="color: var(--color-opt);">-</div>
+                </div>
+                <div class="telemetry-tile" style="border-bottom-color: #fff;">
+                    <div class="tel-label">Folds (n+1)</div>
+                    <div class="tel-value" id="regNA" style="color: #fff;">0</div>
+                </div>
+                <div class="telemetry-tile" style="border-bottom-color: var(--color-converged);">
+                    <div class="tel-label">Target Zone Met</div>
+                    <div class="tel-value" id="regZone" style="color: var(--color-converged);">-</div>
+                </div>
+            </div>
+
+            <div style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-secondary); font-weight: 700; letter-spacing: 0.08em; margin-bottom: 0.3rem;">
+                Pipeline C1: Target Sector Bound: <code>(0, α/2)</code>
+            </div>
+            <div class="trace-container" style="margin-bottom: 1rem;">
+                <table class="system-table">
+                    <thead>
+                        <tr><th>Frame</th><th>Active Arithmetic Operation</th><th>Output Value</th><th>Phase State Identity</th></tr>
+                    </thead>
+                    <tbody id="tblRefTrace"></tbody>
+                </table>
+            </div>
+
+            <div style="font-size: 0.6rem; text-transform: uppercase; color: var(--text-secondary); font-weight: 700; letter-spacing: 0.08em; margin-bottom: 0.3rem;">
+                Pipeline C2: Target Sector Bound: <code>(0, α)</code>
+            </div>
+            <div class="trace-container">
+                <table class="system-table">
+                    <thead>
+                        <tr><th>Frame</th><th>Active Arithmetic Operation</th><th>Output Value</th><th>Phase State Identity</th></tr>
+                    </thead>
+                    <tbody id="tblEqTrace"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="oscilloscope-panel">
+        <div class="oscilloscope-header">
+            <span>Dynamic Phase Space Amplitude Waveform Excursion Monitor (Oscilloscope view)</span>
+            <span id="waveStatus" style="color: var(--text-secondary);">IDLE</span>
+        </div>
+        <svg class="wave-svg" id="waveGraph">
+            <g id="gridLines" stroke="#1e293b" stroke-width="0.5"></g>
+            <path id="wavePathA" d="" fill="none" stroke="var(--color-opt)" stroke-width="2"></path>
+            <path id="wavePathB" d="" fill="none" stroke="var(--color-bounce)" stroke-width="1.5" stroke-dasharray="3,3"></path>
+        </svg>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('radarPlane');
+    const ctx = canvas.getContext('2d');
+    
+    const boxAngle = document.getElementById('boxAngle');
+    const sliderAngle = document.getElementById('sliderAngle');
+    const inAlpha = document.getElementById('inAlpha');
+    const geomLabel = document.getElementById('geomLabel');
+    const presetButtons = document.querySelectorAll('.preset-btn');
+    
+    const cmdCompute = document.getElementById('cmdCompute');
+    const cmdStep = document.getElementById('cmdStep');
+    const warningBanner = document.getElementById('warningBanner');
+
+    const regRef = document.getElementById('regRef');
+    const regNA = document.getElementById('regNA');
+    const regZone = document.getElementById('regZone');
+    
+    const tblRefTrace = document.getElementById('tblRefTrace');
+    const tblEqTrace = document.getElementById('tblEqTrace');
+    const waveGraph = document.getElementById('waveGraph');
+
+    let engineState = null;
+    let stepIndexPointer = -1;
+
+    presetButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            presetButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            
+            inAlpha.value = button.getAttribute('data-alpha');
+            geomLabel.innerText = button.getAttribute('data-geom');
+            stepIndexPointer = -1;
+            recomputeEngine();
+        });
+    });
+
+    const clearPresetSelectionFlags = () => {
+        presetButtons.forEach(btn => btn.classList.remove('active'));
+        geomLabel.innerText = "CUSTOM SYMMETRY MODE";
+    };
+    inAlpha.addEventListener('input', clearPresetSelectionFlags);
+
+    // Synchronize slider and numerical field
+    boxAngle.addEventListener('input', () => {
+        sliderAngle.value = boxAngle.value;
+        stepIndexPointer = -1;
+        recomputeEngine();
+    });
+
+    sliderAngle.addEventListener('input', () => {
+        boxAngle.value = sliderAngle.value;
+        stepIndexPointer = -1;
+        recomputeEngine();
+    });
+
+    // Algorithm C: T_α(θ) = |θ| - α
+    function runCoreFoldEngine(thetaInput, alpha) {
+        if(alpha <= 0) return { error: true };
+
+        let thetaA = thetaInput;
+        let nA = 0;
+        let traceA = [{ step: 0, formula: "Load Ingestion Vector", val: thetaA, phase: "Initial Space", cls: "" }];
+
+        let max_iterations = 50; 
+        
+        while ((thetaA >= (alpha / 2) || thetaA <= 0) && nA < max_iterations) {
+            let pastA = thetaA;
+            thetaA = Math.abs(pastA) - alpha;
+            nA++;
+            
+            let phase = thetaA < 0 ? "The Plunge" : "The Staircase";
+            let cls = thetaA < 0 ? "badge-plunge" : "badge-staircase";
+            if (thetaA > 0 && thetaA < (alpha / 2)) { phase = "Converged"; cls = "badge-converged"; }
+
+            traceA.push({ step: nA, formula: `|${pastA.toFixed(1)}| - ${alpha}`, val: thetaA, phase: phase, cls: cls });
+        }
+
+        let thetaB = thetaInput;
+        let nB = 0;
+        let traceB = [{ step: 0, formula: "Load Ingestion Vector", val: thetaB, phase: "Initial Space", cls: "" }];
+
+        while ((thetaB >= alpha || thetaB <= 0) && nB < max_iterations) {
+            let pastB = thetaB;
+            thetaB = Math.abs(pastB) - alpha;
+            nB++;
+
+            let phase = thetaB < 0 ? "The Plunge" : "The Staircase";
+            let cls = thetaB < 0 ? "badge-plunge" : "badge-staircase";
+            if (thetaB > 0 && thetaB < alpha) { phase = "Converged"; cls = "badge-converged"; }
+
+            traceB.push({ step: nB, formula: `|${pastB.toFixed(1)}| - ${alpha}`, val: thetaB, phase: phase, cls: cls });
+        }
+
+        return { error: false, traceA, traceB, finalA: thetaA, finalB: thetaB, nA, nB };
+    }
+
+    function recomputeEngine() {
+        const thetaVal = parseFloat(boxAngle.value) || 0;
+        const alphaVal = parseFloat(inAlpha.value) || 360;
+
+        engineState = runCoreFoldEngine(thetaVal, alphaVal);
+
+        if (engineState.error) {
+            warningBanner.style.display = "block";
+            regRef.innerText = "LOCKED";
+            regNA.innerText = "-";
+            regZone.innerText = "AXIS";
+            tblRefTrace.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--color-input);">Calculation failure. Constraints breached.</td></tr>`;
+            tblEqTrace.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--color-input);">Calculation failure. Constraints breached.</td></tr>`;
+            drawRadarScreen(true);
+            return;
+        }
+        
+        warningBanner.style.display = "none";
+        renderLogsTable();
+        drawRadarScreen(false);
+        updateOscilloscopePaths();
+    }
+
+    function getActiveFocusScope() {
+        return document.querySelector('input[name="radarFocus"]:checked').value;
+    }
+
+    function renderLogsTable() {
+        tblRefTrace.innerHTML = "";
+        engineState.traceA.forEach((row, idx) => {
+            let tr = document.createElement('tr');
+            if(stepIndexPointer !== -1 && getActiveFocusScope() === 'A' && stepIndexPointer === idx) tr.className = "row-executing";
+            let badge = row.cls ? `<span class="${row.cls}">${row.phase}</span>` : `<span>${row.phase}</span>`;
+            tr.innerHTML = `<td>n = ${row.step}</td><td><code>${row.formula}</code></td><td>${row.val.toFixed(2)}°</td><td>${badge}</td>`;
+            tblRefTrace.appendChild(tr);
+        });
+
+        tblEqTrace.innerHTML = "";
+        engineState.traceB.forEach((row, idx) => {
+            let tr = document.createElement('tr');
+            if(stepIndexPointer !== -1 && getActiveFocusScope() === 'B' && stepIndexPointer === idx) tr.className = "row-executing";
+            let badge = row.cls ? `<span class="${row.cls}">${row.phase}</span>` : `<span>${row.phase}</span>`;
+            tr.innerHTML = `<td>n = ${row.step}</td><td><code>${row.formula}</code></td><td>${row.val.toFixed(2)}°</td><td>${badge}</td>`;
+            tblEqTrace.appendChild(tr);
+        });
+
+        if (stepIndexPointer === -1) {
+            const isA = getActiveFocusScope() === 'A';
+            regRef.innerText = `${(isA ? engineState.finalA : engineState.finalB).toFixed(2)}°`;
+            regNA.innerText = isA ? engineState.nA : engineState.nB;
+            regZone.innerText = "SUCCESS";
+            document.getElementById('waveStatus').innerText = "SEQUENCE STABLE LOCK";
+        }
+    }
+
+    function drawRadarScreen(isErrorState) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+        const maxRadius = 240;
+
+        const alphaVal = parseFloat(inAlpha.value) || 360;
+        const focusMode = getActiveFocusScope();
+        
+        const currentTargetBound = focusMode === 'A' ? (alphaVal / 2) : alphaVal;
+
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 1;
+        for(let radius = 60; radius <= maxRadius; radius += 60) {
+            ctx.beginPath(); ctx.arc(cx, cy, radius, 0, 2 * Math.PI); ctx.stroke();
+        }
+
+        ctx.strokeStyle = isErrorState ? 'rgba(239, 68, 68, 0.4)' : '#0ea5e9';
+        ctx.lineWidth = 1.5;
+        let stepDivision = alphaVal > 0 ? alphaVal : 90;
+        if (stepDivision === 360) stepDivision = 90; 
+        
+        for (let angle = 0; angle < 360; angle += stepDivision) {
+            let rad = (angle * Math.PI) / 180;
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + maxRadius * Math.cos(rad), cy - maxRadius * Math.sin(rad)); ctx.stroke();
+        }
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = '10px var(--font-engine)';
+        for (let angle = 0; angle < 360; angle += 45) {
+            let rad = (angle * Math.PI) / 180;
+            ctx.fillText(`${angle}°`, cx + (maxRadius + 15) * Math.cos(rad) - 10, cy - (maxRadius + 15) * Math.sin(rad) + 4);
+        }
+
+        if (isErrorState) return;
+
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, maxRadius, 0, -(currentTargetBound * Math.PI / 180), true);
+        ctx.lineTo(cx, cy);
+        ctx.fill();
+
+        const workingTraceArray = focusMode === 'A' ? engineState.traceA : engineState.traceB;
+        let renderLimit = stepIndexPointer === -1 ? workingTraceArray.length : Math.min(stepIndexPointer + 1, workingTraceArray.length);
+
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.strokeStyle = 'rgba(6, 182, 212, 0.6)';
+        ctx.beginPath();
+        for(let i = 0; i < renderLimit; i++) {
+            let rad = (workingTraceArray[i].val * Math.PI) / 180;
+            let stepRadius = maxRadius - (i * 12);
+            if(stepRadius < 20) stepRadius = 20;
+            let tx = cx + stepRadius * Math.cos(rad);
+            let ty = cy - stepRadius * Math.sin(rad);
+            if(i === 0) ctx.moveTo(tx, ty); else ctx.lineTo(tx, ty);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        for(let i = 0; i < renderLimit; i++) {
+            let angleVal = workingTraceArray[i].val;
+            let rad = (angleVal * Math.PI) / 180;
+            let stepRadius = maxRadius - (i * 12);
+            if(stepRadius < 20) stepRadius = 20;
+            let tx = cx + stepRadius * Math.cos(rad);
+            let ty = cy - stepRadius * Math.sin(rad);
+
+            let markerColor = 'var(--color-bounce)';
+            let markerSize = 4;
+
+            if (i === 0) markerColor = 'var(--color-input)';
+            else if (i === workingTraceArray.length - 1) { markerColor = 'var(--color-converged)'; markerSize = 6; }
+
+            ctx.strokeStyle = markerColor;
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(tx, ty); ctx.stroke();
+
+            ctx.fillStyle = markerColor;
+            ctx.beginPath(); ctx.arc(tx, ty, markerSize, 0, 2 * Math.PI); ctx.fill();
+
+            if (i === 0 || i === renderLimit - 1) {
+                ctx.fillStyle = '#f1f5f9';
+                ctx.font = 'bold 9px var(--font-engine)';
+                ctx.fillText(`θ[${i}]: ${angleVal.toFixed(1)}°`, tx + 8, ty - 4);
+            }
+        }
+    }
+
+    function updateOscilloscopePaths() {
+        const svgW = waveGraph.clientWidth || 600;
+        const svgH = 110;
+        
+        const gridLinesG = document.getElementById('gridLines');
+        gridLinesG.innerHTML = "";
+        for(let x = 40; x < svgW; x += 40) {
+            let l = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            l.setAttribute("x1", x); l.setAttribute("y1", 0); l.setAttribute("x2", x); l.setAttribute("y2", svgH);
+            gridLinesG.appendChild(l);
+        }
+        for(let y = 20; y < svgH; y += 20) {
+            let l = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            l.setAttribute("x1", 0); l.setAttribute("y1", y); l.setAttribute("x2", svgW); l.setAttribute("y2", y);
+            gridLinesG.appendChild(l);
+        }
+
+        const mapToSvgPointsString = (trace) => {
+            if(!trace || trace.length === 0) return "";
+            let pointsCount = trace.length;
+            let stepSpacing = svgW / Math.max(8, pointsCount);
+            
+            return trace.map((pt, idx) => {
+                let xCoord = idx * stepSpacing;
+                let normalizedVal = ((pt.val + 180) % 360) / 360;
+                let yCoord = svgH - (normalizedVal * (svgH - 20) + 10);
+                return `${idx === 0 ? 'M' : 'L'} ${xCoord} ${yCoord}`;
+            }).join(" ");
+        };
+
+        document.getElementById('wavePathA').setAttribute("d", mapToSvgPointsString(engineState.traceA));
+        document.getElementById('wavePathB').setAttribute("d", mapToSvgPointsString(engineState.traceB));
+    }
+
+    cmdCompute.addEventListener('click', () => { stepIndexPointer = -1; recomputeEngine(); });
+    inAlpha.addEventListener('input', () => { stepIndexPointer = -1; recomputeEngine(); });
+    
+    document.querySelectorAll('input[name="radarFocus"]').forEach(radio => {
+        radio.addEventListener('change', () => { 
+            stepIndexPointer = -1; 
+            recomputeEngine(); 
+        });
+    });
+
+    cmdStep.addEventListener('click', () => {
+        if (engineState.error) return;
+        const workingTraceArray = getActiveFocusScope() === 'A' ? engineState.traceA : engineState.traceB;
+        stepIndexPointer++;
+        if(stepIndexPointer >= workingTraceArray.length) stepIndexPointer = 0;
+        
+        let frameRecord = workingTraceArray[stepIndexPointer];
+        
+        regRef.innerText = `${frameRecord.val.toFixed(2)}°`;
+        regNA.innerText = frameRecord.step;
+        
+        document.getElementById('waveStatus').innerText = `STEPPING NODE FRAME [${stepIndexPointer}] -> IDENTITY: ${frameRecord.phase.toUpperCase()}`;
+        renderLogsTable();
+        drawRadarScreen(false);
+    });
+
+    recomputeEngine();
+</script>
+</body>
+</html>
